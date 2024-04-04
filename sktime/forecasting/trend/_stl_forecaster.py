@@ -327,6 +327,23 @@ class STLForecaster(BaseForecaster):
         self.forecaster_resid_.update(y=self.resid_, X=X, update_params=update_params)
         return self
 
+    def plot_components(self, title=None):
+        """Plot the observed, trend, seasonal, and residual components."""
+        fig, ax = plt.subplots(4, 1, sharex=True)
+        
+        plot_series(self._y, ax=ax[0], markers=[""], y_label="Observed")
+        plot_series(self.trend_, ax=ax[1], markers=[""], y_label="Trend")
+        plot_series(self.seasonal_, ax=ax[2], markers=[""], y_label="Seasonal")
+        plot_series(self.resid_, ax=ax[3], y_label="Residual")
+        # Get the lines from the 4th plot and remove them (or at least make them invisible, while keeping the markers)
+        for line in ax[3].lines:
+            line.set_linestyle('None')
+        ax[3].axhline(0, color='black', linestyle='-')
+        if title is not None:
+            fig.suptitle(title)
+        plt.tight_layout()
+        return fig, ax
+
     @classmethod
     def get_test_params(cls, parameter_set="default"):
         """Return testing parameter settings for the estimator.
