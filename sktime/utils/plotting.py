@@ -94,7 +94,10 @@ def plot_series(
     l_series = list(series)
     l_series = [convert_to(y, "pd.Series", "Series") for y in l_series]
     for i in range(len(l_series)):
-        l_series[i].name = list(series)[i].columns[0]
+        if isinstance(list(series)[i], pd.DataFrame):
+            l_series[i].name = list(series)[i].columns[0]
+        elif isinstance(list(series)[i], pd.Series):
+            l_series[i].name = list(series)[i].name
     
     n_series = len(l_series)
     _ax_kwarg_is_none = True if ax is None else False
