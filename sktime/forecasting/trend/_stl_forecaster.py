@@ -329,6 +329,8 @@ class STLForecaster(BaseForecaster):
 
     def plot_components(self, title=None):
         """Plot the observed, trend, seasonal, and residual components."""
+        import matplotlib.pyplot as plt
+        from sktime.utils.plotting import plot_series
         fig, ax = plt.subplots(4, 1, sharex=True)
         
         plot_series(self._y, ax=ax[0], markers=[""], y_label="Observed")
