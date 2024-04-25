@@ -106,6 +106,8 @@ class PolynomialTrendForecaster(BaseForecaster):
         -------
         self : returns an instance of self.
         """
+        import numpy as np
+        
         # for default regressor, set fit_intercept=False as we generate a
         # dummy variable in polynomial features
         if self.regressor is None:
@@ -126,6 +128,13 @@ class PolynomialTrendForecaster(BaseForecaster):
 
         # fit regressor
         self.regressor_.fit(X_sklearn, y)
+        
+        # calculate and save values needed for the prediction interval method
+        fitted_values = self.regressor_.predict(X_sklearn)
+        residuals = y - fitted_values
+        p = self.degree + int(self.get_params()['with_intercept'])
+        self.s_squared_ = np.sum(residuals**2) / (len(y) - p)
+        self.train_index_ = y.index
         return self
 
     def _predict(self, fh=None, X=None):
@@ -150,6 +159,55 @@ class PolynomialTrendForecaster(BaseForecaster):
         y_pred = pd.Series(y_pred_sklearn, index=fh)
         y_pred.name = self._y.name
         return y_pred
+
+    def predict_interval(self, fh, coverage=[0.95]):
+        """Computes the prediction intervals for different confidence levels"""
+        import numpy as np
+        from scipy.stats import t as t_dist
+        
+        # 1. get forecasts
+        pred_values = self.predict(fh)
+        
+        # 2. get X (design matrix) and M = (X^t X)^-1
+        t_train = self.train_index_.astype('int64') // 10**9 // 86400  ## convert to days since 1970
+        X = np.polynomial.polynomial.polyvander(t_train, self.degree)
+        M = np.linalg.inv(X.T @ X)
+
+        # 3. get time vector t for the forecast horizons
+        days_since_1970 = fh.to_pandas().astype('int64') // 10**9 // 86400
+        t = np.array(days_since_1970)
+      
+        # 4. calculate (half-) range of prediction interval (1 + sqrt(x_0^t M x_0)) (up to scaling)
+        v = []
+        for i in range(len(t)):
+            z = t[i]
+            w = np.array([z**j for j in range(self.degree + 1)])
+            v.append(w.T @ M @ w)
+
+        v = 1 + np.sqrt(np.array(v))
+        
+        s = np.sqrt(self.s_squared_).item()
+        
+        p = self.degree + int(self.get_params()['with_intercept'])
+
+        pred_intervals = {}
+        for cov in coverage:
+            alpha = 1 - cov
+            t_alpha = t_dist.ppf(alpha/2, df=(len(t_train) - p))  # (left tail)
+
+            half_range = t_alpha * s * v
+
+            # Calculate the upper and lower values of the prediction interval
+            lower = (pred_values.values + half_range.reshape(-1,1)).reshape(-1)
+            upper = (pred_values.values - half_range.reshape(-1,1)).reshape(-1)
+            pred_interval = pd.DataFrame({'lower': lower, 'upper': upper}, index=fh.to_pandas())
+            pred_interval.columns = pd.MultiIndex.from_product([['Coverage'], [1-alpha], ['lower', 'upper']])
+
+            pred_intervals[cov] = pred_interval
+
+        pred_intervals = pd.concat(pred_intervals.values(), axis=1)
+        
+        return pred_intervals
 
     @classmethod
     def get_test_params(cls, parameter_set="default"):
