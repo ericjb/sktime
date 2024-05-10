@@ -163,28 +163,44 @@ class PolynomialTrendForecaster(BaseForecaster):
     def predict_interval(self, fh, coverage=[0.95]):
         """Computes the prediction intervals for different confidence levels"""
         import numpy as np
-        from scipy.stats import t as t_dist
+        from scipy.stats import norm
+        
+        def l_days_since_1970(idx):
+            if isinstance(idx, pd.DatetimeIndex):
+                return idx.astype('int64') // 10**9 // 86400
+            elif isinstance(idx, pd.PeriodIndex):
+                return idx.to_timestamp().astype('int64') // 10**9 // 86400
+            else:
+                raise TypeError("Index must be of type DatetimeIndex or PeriodIndex")
         
         # 1. get forecasts
         pred_values = self.predict(fh)
         
         # 2. get X (design matrix) and M = (X^t X)^-1
-        t_train = self.train_index_.astype('int64') // 10**9 // 86400  ## convert to days since 1970
+        t_train = l_days_since_1970(self.train_index_)
         X = np.polynomial.polynomial.polyvander(t_train, self.degree)
+        if not self.get_params()['with_intercept']:
+            X = X[:, 1:] # remove the column of 1's that handles the intercept
+        
         M = np.linalg.inv(X.T @ X)
 
         # 3. get time vector t for the forecast horizons
-        days_since_1970 = fh.to_pandas().astype('int64') // 10**9 // 86400
-        t = np.array(days_since_1970)
+        if fh.is_relative:
+            fh = fh.to_absolute(cutoff = self.train_index_[-1])
+            
+        t_fh = fh.to_pandas()
+        fh_days_since_1970 = l_days_since_1970(t_fh)
+        t = np.array(fh_days_since_1970)
       
         # 4. calculate (half-) range of prediction interval (1 + sqrt(x_0^t M x_0)) (up to scaling)
+        start = 0 if self.get_params()['with_intercept'] else 1
         v = []
         for i in range(len(t)):
             z = t[i]
-            w = np.array([z**j for j in range(self.degree + 1)])
+            w = np.array([z**j for j in range(start, self.degree + 1)])
             v.append(w.T @ M @ w)
 
-        v = 1 + np.sqrt(np.array(v))
+        v = np.sqrt(1 + np.array(v)) # see Hyndman FPP3 Section 7.9
         
         s = np.sqrt(self.s_squared_).item()
         
@@ -193,13 +209,13 @@ class PolynomialTrendForecaster(BaseForecaster):
         pred_intervals = {}
         for cov in coverage:
             alpha = 1 - cov
-            t_alpha = t_dist.ppf(alpha/2, df=(len(t_train) - p))  # (left tail)
+            z_alpha = norm.ppf(alpha/2)  # (left tail) - See Hyndman FPP3 Section 7.9
 
-            half_range = t_alpha * s * v
+            half_range = z_alpha * s * v
 
             # Calculate the upper and lower values of the prediction interval
-            lower = (pred_values.values + half_range.reshape(-1,1)).reshape(-1)
-            upper = (pred_values.values - half_range.reshape(-1,1)).reshape(-1)
+            lower = pred_values.values + half_range
+            upper = pred_values.values - half_range
             pred_interval = pd.DataFrame({'lower': lower, 'upper': upper}, index=fh.to_pandas())
             pred_interval.columns = pd.MultiIndex.from_product([['Coverage'], [1-alpha], ['lower', 'upper']])
 
