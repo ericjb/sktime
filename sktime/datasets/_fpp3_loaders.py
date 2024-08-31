@@ -20,6 +20,7 @@ import pandas as pd
 # from urllib.error import HTTPError, URLError
 # from warnings import warn
 
+
 # from sktime.datasets._data_io import (
 #     _download_and_extract,
 #     _list_available_datasets,
@@ -31,6 +32,7 @@ import pandas as pd
 
 
 MODULE = os.path.dirname(__file__)
+
 
 fpp3 = [
     "aus_accommodation",

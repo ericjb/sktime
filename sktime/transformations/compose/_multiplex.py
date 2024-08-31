@@ -219,7 +219,6 @@ class MultiplexTransformer(_HeterogenousMetaEstimator, _DelegatedTransformer):
         ------
         ValueError if other is not of type MultiplexTransformer or BaseTransformer.
         """
-
         other = _coerce_to_sktime(other)
         return self._dunder_concat(
             other=other,
@@ -246,7 +245,6 @@ class MultiplexTransformer(_HeterogenousMetaEstimator, _DelegatedTransformer):
             (first). not nested, contains only non-MultiplexTransformer ``sktime``
             transformers
         """
-
         other = _coerce_to_sktime(other)
         return self._dunder_concat(
             other=other,

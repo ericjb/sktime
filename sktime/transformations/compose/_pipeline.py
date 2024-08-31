@@ -266,7 +266,6 @@ class TransformerPipeline(_HeterogenousMetaEstimator, BaseTransformer):
         (last).
             not nested, contains only non-TransformerPipeline ``sktime`` steps
         """
-
         other = _coerce_to_sktime(other)
         return self._dunder_concat(
             other=other,

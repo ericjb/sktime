@@ -144,8 +144,7 @@ class FeatureUnion(_HeterogenousMetaEstimator, BaseTransformer):
         (last).
             not nested, contains only non-FeatureUnion ``sktime`` transformers
         """
-
-        other = _coerce_sktime(other)
+        other = _coerce_to_sktime(other)
         return self._dunder_concat(
             other=other,
             base_class=BaseTransformer,
@@ -171,7 +170,6 @@ class FeatureUnion(_HeterogenousMetaEstimator, BaseTransformer):
         (first).
             not nested, contains only non-FeatureUnion ``sktime`` transformers
         """
-
         other = _coerce_to_sktime(other)
         return self._dunder_concat(
             other=other,

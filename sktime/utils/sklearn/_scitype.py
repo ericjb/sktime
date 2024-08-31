@@ -11,7 +11,6 @@ from sklearn.pipeline import Pipeline
 
 from sktime.base import BaseObject
 
-
 __author__ = ["fkiraly"]
 
 
