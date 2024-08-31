@@ -111,9 +111,7 @@ class OptionalPassthrough(_DelegatedTransformer):
         if passthrough:
             self.transformer_ = Id()
         else:
-            from sktime.registry import coerce_scitype
-
-            self.transformer_ = coerce_scitype(transformer, "transformer")
+            self.transformer_ = transformer.clone()
 
     # attribute for _DelegatedTransformer, which then delegates
     #     all non-overridden methods are same as of getattr(self, _delegate_name)

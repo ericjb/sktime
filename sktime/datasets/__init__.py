@@ -93,6 +93,3 @@ from sktime.datasets._single_problem_loaders import (
     load_unit_test_tsf,
     load_uschange,
 )
-from sktime.datasets._fpp3_loaders import (
-    load_fpp3,
-)
