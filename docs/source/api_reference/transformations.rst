@@ -10,6 +10,10 @@ All (simple) transformers in ``sktime`` can be listed using the ``sktime.registr
 using ``estimator_types="transformer"``, optionally filtered by tags.
 Valid tags can be listed using ``sktime.registry.all_tags``.
 
+A full table with tag based search is also available on the
+:doc:`Estimator Search Page </estimator_overview>`
+(select "transformere" in the "Estimator type" dropdown).
+
 For pairwise transformers (time series distances, kernels), instead see :ref:`_transformations_pairwise_ref`.
 
 Transformations are categorized as follows:
@@ -137,6 +141,14 @@ These transformers extract simple summary features.
     RandomIntervalFeatureExtractor
     FittedParamExtractor
 
+.. currentmodule:: sktime.transformations.series.adi_cv
+
+.. autosummary::
+    :toctree: auto_generated/
+    :template: class.rst
+
+    ADICVTransformer
+
 Shapelets, wavelets, and convolution
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -223,6 +235,14 @@ These transformers extract larger collections of features.
     :template: class.rst
 
     Catch22
+
+.. currentmodule:: sktime.transformations.panel.catch22wrapper
+
+.. autosummary::
+    :toctree: auto_generated/
+    :template: class.rst
+
+    Catch22Wrapper
 
 Series-to-series transformers
 -----------------------------
@@ -375,6 +395,14 @@ Filtering and denoising
     :template: class.rst
 
     ThetaLinesTransformer
+
+.. currentmodule:: sktime.transformations.series.bollinger
+
+.. autosummary::
+    :toctree: auto_generated/
+    :template: class.rst
+
+    Bollinger
 
 Differencing, slope, kinematics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -569,6 +597,15 @@ These transformers create a series based on a sequence of sliding windows.
 
     HOG1DTransformer
 
+.. currentmodule:: sktime.transformations.series.subsequence_extraction
+
+.. autosummary::
+    :toctree: auto_generated/
+    :template: class.rst
+
+    SubsequenceExtractionTransformer
+
+
 Multivariate-to-univariate
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -673,7 +710,6 @@ These transformations ensure all series in a panel have equal length
     :template: class.rst
 
     TruncationTransformer
-
 
 Dimension reduction
 ~~~~~~~~~~~~~~~~~~~
