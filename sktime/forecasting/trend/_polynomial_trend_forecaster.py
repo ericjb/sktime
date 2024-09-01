@@ -160,24 +160,16 @@ class PolynomialTrendForecaster(BaseForecaster):
         y_pred.name = self._y.name
         return y_pred
 
-    def predict_interval(self, fh, coverage=[0.95]):
+    def _predict_interval(self, fh, coverage=[0.95]):
         """Computes the prediction intervals for different confidence levels"""
         import numpy as np
         from scipy.stats import norm
-        
-        def l_days_since_1970(idx):
-            if isinstance(idx, pd.DatetimeIndex):
-                return idx.astype('int64') // 10**9 // 86400
-            elif isinstance(idx, pd.PeriodIndex):
-                return idx.to_timestamp().astype('int64') // 10**9 // 86400
-            else:
-                raise TypeError("Index must be of type DatetimeIndex or PeriodIndex")
         
         # 1. get forecasts
         pred_values = self.predict(fh)
         
         # 2. get X (design matrix) and M = (X^t X)^-1
-        t_train = l_days_since_1970(self.train_index_)
+        t_train = _get_X_numpy_int_from_pandas(self.train_index_)
         X = np.polynomial.polynomial.polyvander(t_train, self.degree)
         if not self.get_params()['with_intercept']:
             X = X[:, 1:] # remove the column of 1's that handles the intercept
@@ -189,7 +181,7 @@ class PolynomialTrendForecaster(BaseForecaster):
             fh = fh.to_absolute(cutoff = self.train_index_[-1])
             
         t_fh = fh.to_pandas()
-        fh_days_since_1970 = l_days_since_1970(t_fh)
+        fh_days_since_1970 = _get_X_numpy_int_from_pandas(t_fh)
         t = np.array(fh_days_since_1970)
       
         # 4. calculate (half-) range of prediction interval (1 + sqrt(x_0^t M x_0)) (up to scaling)
