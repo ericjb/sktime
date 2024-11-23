@@ -24,7 +24,6 @@ __all__ = [
     "DirRecTabularRegressionForecaster",
     "DirRecTimeSeriesRegressionForecaster",
     "DirectReductionForecaster",
-    "RecursiveReductionForecaster",
     "YfromX",
 ]
 
@@ -2367,11 +2366,13 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
         window_length=10,
         impute_method="bfill",
         pooling="local",
+        subset=None,
     ):
         self.window_length = window_length
         self.estimator = estimator
         self.impute_method = impute_method
         self.pooling = pooling
+        self.subset = subset
         self._lags = list(range(window_length))
         super().__init__()
 
@@ -2393,6 +2394,24 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
                 ' "local", "global", "panel", '
                 f"but found {pooling}"
             )
+
+        if self.subset is not None:
+            if not (
+                isinstance(self.subset, list)
+                and all(
+                    isinstance(item, int) and 0 <= item < self.window_length
+                    for item in self.subset
+                )
+            ):
+                raise ValueError(
+                    "subset must be a list of positive integers between 0 "
+                    "(inclusive) and window_length (not inclusive)"
+                )
+            # subset needs to be transformed from time index to lag index
+            self._subset = [self.window_length - z - 1 for z in reversed(self.subset)]
+        else:
+            self._subset = None
+
         self.set_tags(**{"X_inner_mtype": mtypes})
         self.set_tags(**{"y_inner_mtype": mtypes})
 
@@ -2463,6 +2482,9 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
         if len(notna_idx) == 0:
             self.estimator_ = y.mean()
         else:
+            if self._subset is not None:
+                Xtt = Xtt.iloc[:, self._subset]
+
             if X is not None:
                 Xtt = pd.concat([X.loc[notna_idx], Xtt], axis=1)
 
@@ -2626,7 +2648,11 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
                 ]  # reverse order of columns to match lag order
 
                 # Generate predictions.
-                y_pred[i] = self.estimator_.predict(X_pred)[0]
+                if self._subset is not None:
+                    X_pred_subset = X_pred[:, self._subset]
+                    y_pred[i] = self.estimator_.predict(X_pred_subset)[0]
+                else:
+                    y_pred[i] = self.estimator_.predict(X_pred)[0]
 
                 # Update last window with previous prediction.
                 last[:, 0, window_length + i] = y_pred[i]
@@ -2665,7 +2691,7 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
         )
         y_abs_no_gaps = y_abs_no_gaps.to_absolute_index(self._cutoff)
 
-        """"
+        """
         if False:
             fh_idx = self._get_expected_pred_idx(fh=fh)
             lagger_y_to_X = self.lagger_y_to_X_
@@ -2716,7 +2742,6 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
             y_pred = pd.DataFrame(y_pred, columns=y_cols, index=y_abs_no_gaps)
             y_pred = slice_at_ix(y_pred, fh_idx)
         """
-
         y_alt = self._predict_out_of_sample_alt(fh)
         y_alt = pd.DataFrame(y_alt, columns=y_cols, index=y_abs_no_gaps)
 
@@ -2759,7 +2784,10 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
             y_pred = y_pred.fillna(self.estimator)
         # otherwise proceed as per direct reduction algorithm
         else:
-            y_pred = estimator.predict(Xtt_predrows)
+            if self._subset is not None:
+                y_pred = estimator.predict(Xtt_predrows.iloc[:, self._subset])
+            else:
+                y_pred = estimator.predict(Xtt_predrows)
             # 2D numpy array with col index = (var) and 1 row
             y_pred = pd.DataFrame(y_pred, columns=y_cols, index=fh_idx)
 
@@ -2799,6 +2827,7 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
             "window_length": 3,
             "pooling": "global",  # all internal mtypes are tested across scenarios
         }
+
         params2 = {
             "estimator": est,
             "window_length": 4,
