@@ -1989,7 +1989,9 @@ class DirectReductionForecaster(BaseForecaster, _ReducerMixin):
             if self.windows_identical is True:
                 return self._predict_multioutput(X=X, fh=fh)
             else:
-                return self._predict_multiple(X=self._X, fh=fh)
+                return self._predict_multiple(
+                    X=X, fh=fh
+                )  # was (X=self._X, fh=fh) which is wrong
         else:
             return self._predict_multiple(X=X, fh=fh)
 
@@ -2108,7 +2110,9 @@ class DirectReductionForecaster(BaseForecaster, _ReducerMixin):
             trafos = self.transformers
 
             # determine whether to use concurrent X (lead them) or shifted (0)
-            X_lag = lag if X_treatment == "concurrent" else 0
+            X_lag = (
+                lag if X_treatment == "concurrent" else lag + 1
+            )  # had else 0 but that seems wrong for Direct
 
             # lagger_y_to_X_ will lag y to obtain the sklearn X
             # also updates self.lagger_y_to_X_ by reference
