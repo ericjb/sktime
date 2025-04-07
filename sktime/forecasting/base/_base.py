@@ -119,6 +119,7 @@ class BaseForecaster(_PredictProbaMixin, BaseEstimator):
         #  "loky", "multiprocessing" and "threading": uses `joblib` Parallel loops
         #  "joblib": uses custom joblib backend, set via `joblib_backend` tag
         #  "dask": uses `dask`, requires `dask` package in environment
+        #  "ray": uses `ray`, requires `ray` package in environment
         "backend:parallel:params": None,  # params for parallelization backend
         "remember_data": True,  # whether to remember data in fit - self._X, self._y
     }
@@ -929,7 +930,7 @@ class BaseForecaster(_PredictProbaMixin, BaseEstimator):
             "To silence this message, ensure skpro is installed in the environment "
             "when calling forecasters' predict_proba."
         )
-        non_default_pred_proba = not self._has_implementation_of("_predict_proba")
+        non_default_pred_proba = self._has_implementation_of("_predict_proba")
         skpro_present = _check_soft_dependencies("skpro", severity="none")
 
         if not non_default_pred_proba and not skpro_present:
