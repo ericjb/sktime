@@ -181,6 +181,8 @@ class PyFableARIMA(BaseForecaster):
         if isinstance(Z.index, pd.PeriodIndex):
             Z[date_col_name] = Z.index.to_timestamp()
 
+        Z[date_col_name] = Z[date_col_name].dt.strftime("%Y-%m-%d")
+
         # Convert the pandas DataFrame to an R data frame
         with localconverter(robjects.default_converter + pandas2ri.converter):
             r_data = robjects.conversion.py2rpy(Z)
@@ -202,7 +204,8 @@ class PyFableARIMA(BaseForecaster):
 
             r_script = f"""
             r_data <- dplyr::as_tibble(r_data) |>
-                dplyr::mutate(idx = {freq_func}({date_col_name})) |>
+                dplyr::mutate({date_col_name} = as.Date({date_col_name}),
+                              idx = {freq_func}({date_col_name})) |>
                 tsibble::as_tsibble(index = idx, regular = TRUE)
             r_data
             """
