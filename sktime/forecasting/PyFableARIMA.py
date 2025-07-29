@@ -287,10 +287,20 @@ class PyFableARIMA(BaseForecaster):
         """Extract the fitted values from the ARIMA fit object."""
         import rpy2.robjects as robjects
 
+        ## import pandas as pd         ## DEBUGGING
+
         fitted_values = robjects.r["fitted"](self._fit_auto_arima_)
-        fitted_values_series = robjects.pandas2ri.rpy2py(fitted_values)
-        fitted_values_series.index = self._fit_index_
-        series = fitted_values_series[".fitted"].squeeze()
+
+        ## print("=== R fitted object ===")  ## DEBUGGING
+        ## print(fitted_values)              ## DEBUGGING
+
+        fitted_values_df = robjects.pandas2ri.rpy2py(fitted_values)
+
+        ## print("=== Converted to pandas ===") ## DEBUGGING
+        ## print(fitted_values_df.head())       ## DEBUGGING
+
+        fitted_values_df.index = self._fit_index_
+        series = fitted_values_df[".fitted"].squeeze()
         series.name = self._y.name
 
         return series
