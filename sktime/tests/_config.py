@@ -8,7 +8,6 @@ __all__ = [
     "EXCLUDE_ESTIMATORS",
     "EXCLUDED_TESTS",
     "MATRIXDESIGN",
-    "CYTHON_ESTIMATORS",
     "ONLY_CHANGED_MODULES",
 ]
 
@@ -21,10 +20,6 @@ from sktime.registry import ESTIMATOR_TAG_LIST
 # whether to subsample estimators per os/version partition matrix design
 # default is False, can be set to True by pytest --matrixdesign True flag
 MATRIXDESIGN = False
-
-# whether to test only estimators that require cython, C compiler such as gcc
-# default is False, can be set to True by pytest --only_cython_estimators True flag
-CYTHON_ESTIMATORS = False
 
 # whether to test only estimators from modules that are changed w.r.t. main
 # default is False, can be set to True by pytest --only_changed_modules True flag
@@ -46,14 +41,10 @@ EXCLUDE_ESTIMATORS = [
     "MatrixProfileTransformer",
     # tapnet based estimators fail stochastically for unknown reasons, see #3525
     "TapNetRegressor",
-    "ResNetClassifier",  # known ResNetClassifier sporafic failures, see #3954
     "LSTMFCNClassifier",  # unknown cause, see bug report #4033
     # DL classifier suspected to cause hangs and memouts, see #4610
-    "FCNClassifier",
     "EditDist",
     "CNNClassifier",
-    "FCNClassifier",
-    "InceptionTimeClassifier",
     "LSTMFCNClassifier",
     "MLPClassifier",
     "MLPRegressor",
@@ -61,7 +52,6 @@ EXCLUDE_ESTIMATORS = [
     "ResNetRegressor",
     "FCNRegressor",
     "LSTMFCNRegressor",
-    "CNTCClassifier",
     # splitters excluded with undiagnosed failures, see #6194
     # these are temporarily skipped to allow merging of the base test framework
     "SameLocSplitter",
@@ -70,7 +60,6 @@ EXCLUDE_ESTIMATORS = [
     "CutoffFhSplitter",
     # sporadic timeouts, see #6344
     "ShapeletLearningClassifierTslearn",
-    "DartsXGBModel",
     # models with large weights
     "MomentFMForecaster",
     # Large datasets
@@ -78,18 +67,18 @@ EXCLUDE_ESTIMATORS = [
     # Test estimators
     "_TransformChangeNInstances",
     # ptf global models fail the tests, see #7997
-    "PytorchForecastingTFT",
     "PytorchForecastingNBeats",
     "PytorchForecastingNHiTS",
     "PytorchForecastingDeepAR",
     # STDBSCAN is not API compliant, see #7994
     "STDBSCAN",
-    # DistanceFeatures does ont work for hierarchical data, see #8077
+    # DistanceFeatures does not work for hierarchical data, see #8077
     "DistanceFeatures",
+    # Temporarily remove RRF from tests until speedup PR (#7380) merged
+    "RecursiveReductionForecaster",
     # TimeSeriesKvisibility is not API compliant, see #8026 and #8072
     "TimeSeriesKvisibility",
     # fails due to #8151 or #8059
-    "CNTCRegressor",
     "FreshPRINCE",
     # multiple timeouts and sporadic failures reported related to VARMAX
     # 2997, 3176, 7985
@@ -113,13 +102,6 @@ EXCLUDED_TESTS = {
     ],
     # known issue when X is passed, wrong time indices are returned, #1364
     "StackingForecaster": ["test_predict_time_index_with_X"],
-    # known side effects on multivariate arguments, #2072
-    "WindowSummarizer": ["test_methods_have_no_side_effects"],
-    # tagged in issue #2490
-    "SignatureClassifier": [
-        "test_classifier_on_unit_test_data",
-        "test_classifier_on_basic_motions",
-    ],
     # pickling problem with local method see #2490
     "ProximityStump": [
         "test_persistence_via_pickle",
@@ -145,10 +127,6 @@ EXCLUDED_TESTS = {
         "test_persistence_via_pickle",
         "test_save_estimators_to_file",
     ],
-    # `test_fit_idempotent` fails with `AssertionError`, see #3616
-    "ResNetClassifier": [
-        "test_fit_idempotent",
-    ],
     "ResNetRegressor": [
         "test_fit_idempotent",
     ],
@@ -156,9 +134,6 @@ EXCLUDED_TESTS = {
         "test_fit_idempotent",
     ],
     "CNNRegressor": [
-        "test_fit_idempotent",
-    ],
-    "FCNClassifier": [
         "test_fit_idempotent",
     ],
     "LSTMFCNClassifier": [
@@ -171,14 +146,6 @@ EXCLUDED_TESTS = {
         "test_fit_idempotent",
     ],
     "MLPRegressor": [
-        "test_fit_idempotent",
-    ],
-    "CNTCClassifier": [
-        "test_fit_idempotent",
-        "test_persistence_via_pickle",
-        "test_save_estimators_to_file",
-    ],
-    "InceptionTimeClassifier": [
         "test_fit_idempotent",
     ],
     "SimpleRNNClassifier": [
@@ -200,9 +167,6 @@ EXCLUDED_TESTS = {
         "test_fit_idempotent",
     ],
     "InceptionTimeRegressor": [
-        "test_fit_idempotent",
-    ],
-    "CNTCRegressor": [
         "test_fit_idempotent",
     ],
     # sth is not quite right with the RowTransformer-s changing state,
@@ -306,7 +270,6 @@ EXCLUDED_TESTS_BY_TEST = {
     "test_get_test_params_coverage": [
         "BOSSEnsemble",
         "CAPA",
-        "CNTCClassifier",
         "CNTCNetwork",
         "CanonicalIntervalForest",
         "CircularBinarySegmentation",
@@ -338,9 +301,6 @@ EXCLUDED_TESTS_BY_TEST = {
         "IndividualBOSS",
         "IndividualTDE",
         "InformationGainSegmentation",
-        "LTSFDLinearForecaster",
-        "LTSFLinearForecaster",
-        "LTSFNLinearForecaster",
         "LogTransformer",
         "M5Dataset",
         "MCDCNNClassifier",
@@ -351,10 +311,7 @@ EXCLUDED_TESTS_BY_TEST = {
         "MVCAPA",
         "MatrixProfile",
         "MatrixProfileTransformer",
-        "MiniRocketMultivariate",
-        "MiniRocketMultivariateVariable",
         "MovingWindow",
-        "MultiRocket",
         "MultioutputTabularRegressionForecaster",
         "MultioutputTimeSeriesRegressionForecaster",
         "OnlineEnsembleForecaster",
@@ -385,8 +342,6 @@ EXCLUDED_TESTS_BY_TEST = {
         "SeededBinarySegmentation",
         "ShapeletTransform",
         "ShapeletTransformClassifier",
-        "SignatureClassifier",
-        "SignatureTransformer",
         "SlidingWindowSegmenter",
         "SlopeTransformer",
         "StackingForecaster",

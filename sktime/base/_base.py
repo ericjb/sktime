@@ -89,6 +89,7 @@ class BaseObject(_HTMLDocumentationLinkMixin, _BaseObject):
         # default tags for testing
         "tests:core": False,  # core objects have wider trigger conditions in testing
         "tests:vm": False,  # whether the object should be tested in its own VM
+        "tests:libs": None,  # required libraries, for change conditional testing
         "tests:skip_all": False,  # whether all tests for the object should be skipped
         "tests:skip_by_name": None,  # list of test names to skip for this object
     }
@@ -237,12 +238,15 @@ class BaseObject(_HTMLDocumentationLinkMixin, _BaseObject):
         """Save serialized self to bytes-like object or to (.zip) file.
 
         Behaviour:
-        if ``path`` is None, returns an in-memory serialized self
-        if ``path`` is a file location, stores self at that location as a zip file
+
+        * if ``path`` is None, returns an in-memory serialized self
+        * if ``path`` is a file location, stores self at that location as a zip file
 
         saved files are zip files with following contents:
-        _metadata - contains class of self, i.e., type(self)
-        _obj - serialized self. This class uses the default serialization (pickle).
+
+        * ``_metadata`` - contains class of self, i.e., ``type(self)``
+        * ``_obj`` - serialized self. This class uses the default serialization
+          (pickle).
 
         Parameters
         ----------
