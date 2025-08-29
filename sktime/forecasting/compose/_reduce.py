@@ -2790,8 +2790,11 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
                 )
                 i_row = i_row + 1  # set up for next time through loop
 
-            # Generate predictions.
-            y_pred[i] = self.estimator_.predict(X_pred)[0]
+            # Generate predictions (ensure robust scalar extraction)
+            _raw_pred = self.estimator_.predict(X_pred)
+            # handle outputs like list/Series/ndarray; ravel then take first element
+            _scalar = np.asarray(_raw_pred).ravel()[0]
+            y_pred[i] = float(_scalar)
 
             # Update last window with previous prediction.
             last[:, 0, window_length + i] = y_pred[i]

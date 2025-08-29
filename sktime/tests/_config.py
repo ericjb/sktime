@@ -74,8 +74,6 @@ EXCLUDE_ESTIMATORS = [
     "STDBSCAN",
     # DistanceFeatures does not work for hierarchical data, see #8077
     "DistanceFeatures",
-    # Temporarily remove RRF from tests until speedup PR (#7380) merged
-    "RecursiveReductionForecaster",
     # TimeSeriesKvisibility is not API compliant, see #8026 and #8072
     "TimeSeriesKvisibility",
     # fails due to #8151 or #8059
