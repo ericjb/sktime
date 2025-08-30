@@ -2518,6 +2518,12 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
             Xtt = prep_skl_df(Xtt)
             yt = prep_skl_df(yt)
 
+            # store feature column names (if any) to preserve during predict
+            if hasattr(Xtt, "columns"):
+                self._feature_cols_ = list(Xtt.columns)
+            else:
+                self._feature_cols_ = None
+
             estimator = clone(self.estimator)
             estimator.fit(Xtt, yt)
             self.estimator_ = estimator
@@ -2632,6 +2638,17 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
             return self._get_window_local(cutoff, window_length, y_orig)
         elif self.pooling == "global":
             return self._get_window_global(cutoff, window_length, y_orig)
+        elif self.pooling == "panel":
+            # For <=2 index levels panel pooling degenerates to global pooling
+            # (spec states global and panel identical when <=2 levels).
+            # If higher hierarchy present (>=3 levels), panel pooling would
+            # correspond to modelling per second-lowest level; not yet optimized.
+            if isinstance(y_orig.index, pd.MultiIndex) and y_orig.index.nlevels <= 2:
+                return self._get_window_global(cutoff, window_length, y_orig)
+            else:
+                # Fallback: return global-style window for now; future work:
+                # implement per-panel window extraction (#panel-optimization)
+                return self._get_window_global(cutoff, window_length, y_orig)
 
     def _is_predictable(self, last_window, window_length):
         """Check if we can make predictions from last window."""
@@ -2672,10 +2689,12 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
         -------
         y_return = pd.Series or pd.DataFrame
         """
-        if self._X is not None:
-            raise ValueError(
-                "Do not call this function if model uses exogenous variables X."
-            )
+        # If exogenous data are present (in-fit or provided now), fall back to
+        # the legacy v1 path which already supports X for correctness.
+        # This maintains performance benefit of v2 for the no-X case while
+        # enabling functionality with X.
+        if (self._X is not None) or (X_pool is not None):
+            return self._predict_out_of_sample_v1(X_pool, fh)
 
         # Get last window of available data.
         # If we cannot generate a prediction from the available data, return nan.
@@ -2696,7 +2715,13 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
         y_last_df = self._y.copy()
         for i in range(fh_max):
             # Generate predictions.
-            y_pred_vector = self.estimator_.predict(y_last)
+            if getattr(self, "_feature_cols_", None) is not None and y_last.shape[
+                1
+            ] == len(self._feature_cols_):
+                y_last_df = pd.DataFrame(y_last, columns=self._feature_cols_)
+                y_pred_vector = self.estimator_.predict(y_last_df)
+            else:
+                y_pred_vector = self.estimator_.predict(y_last)
             y_pred_curr = _create_fcst_df([index_range[i]], self._y, fill=y_pred_vector)
             y_pred.update(y_pred_curr)
 
@@ -2790,8 +2815,14 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
                 )
                 i_row = i_row + 1  # set up for next time through loop
 
-            # Generate predictions (ensure robust scalar extraction)
-            _raw_pred = self.estimator_.predict(X_pred)
+            # Generate predictions (ensure robust scalar extraction) with names
+            if getattr(self, "_feature_cols_", None) is not None and X_pred.shape[
+                1
+            ] == len(self._feature_cols_):
+                X_pred_df = pd.DataFrame(X_pred, columns=self._feature_cols_)
+                _raw_pred = self.estimator_.predict(X_pred_df)
+            else:
+                _raw_pred = self.estimator_.predict(X_pred)
             # handle outputs like list/Series/ndarray; ravel then take first element
             _scalar = np.asarray(_raw_pred).ravel()[0]
             y_pred[i] = float(_scalar)
@@ -2837,26 +2868,52 @@ class RecursiveReductionForecaster(BaseForecaster, _ReducerMixin):
     def _predict_out_of_sample(self, X_pool, fh):
         """Recursive reducer: predict out of sample (ahead of cutoff)."""
         # very similar to _predict_concurrent of DirectReductionForecaster - refactor?
-        # If no multiindex, we can use local implementation
-        if self.pooling == "global" and isinstance(self._y.index, pd.MultiIndex):
+        # Strategy selection:
+        #   global  -> optimized v2 global path (fallback to v1 inside if exogenous X)
+        #   local   -> optimized v2 local path
+        #   panel   -> fallback to legacy v1 path for correctness (gappy fh indexing)
+        #             TODO: implement optimized v2 panel path (#panel-optimization)
+        already_filtered = False
+        if self.pooling == "panel":
+            # v1 path already returns only the requested fh rows
+            y_pred = self._predict_out_of_sample_v1(X_pool, fh)
+            already_filtered = True
+        elif self.pooling == "global" and isinstance(self._y.index, pd.MultiIndex):
             y_pred = self._predict_out_of_sample_v2_global(X_pool, fh)
+        elif self.pooling == "local" or not isinstance(self._y.index, pd.MultiIndex):
+            y_pred = self._predict_out_of_sample_v2_local(X_pool, fh)
         else:
-            self.pooling = "local"
-            y_pred = self._predict_out_of_sample_v2_local(
-                X_pool, fh
-            )  # TODO: does this work for panel?
+            raise ValueError(
+                "Unsupported pooling setting for RecursiveReductionForecaster: "
+                f"{self.pooling}"
+            )
 
-        y_return = self._filter_and_adjust_predictions(fh, y_pred)
+        # Filter to requested fh only unless already filtered in path
+        if already_filtered:
+            y_return = y_pred
+        else:
+            y_return = self._filter_and_adjust_predictions(fh, y_pred)
 
-        y_abs_no_gaps, _ = self._generate_fh_no_gaps(fh)
+        # If result is a raw numpy array (local path), wrap into DataFrame with
+        # the absolute fh index. This avoids attempting to coerce onto a gapless
+        # index of length fh_max (which caused shape mismatches for gappy fh).
+        if isinstance(y_return, np.ndarray):
+            fh_abs_index = fh.to_absolute(self.cutoff).to_pandas()
+            y_return = pd.DataFrame(
+                y_return, columns=self._y.columns, index=fh_abs_index
+            )
+        elif isinstance(y_return, pd.Series):
+            # ensure DataFrame with correct columns
+            fh_abs_index = fh.to_absolute(self.cutoff).to_pandas()
+            y_return = pd.DataFrame(
+                y_return.values, columns=self._y.columns, index=fh_abs_index
+            )
+        # if already a DataFrame, we assume indices align with requested fh
 
-        # Adjust index if MultiIndex is present
-        if isinstance(getattr(y_return, "index", None), pd.MultiIndex):
-            y_abs_no_gaps = y_return.index.set_levels(y_abs_no_gaps, level=-1)
+        if isinstance(y_return.index, pd.MultiIndex):
+            y_return = y_return.sort_index()
 
-        y_alt = pd.DataFrame(y_return, columns=self._y.columns, index=y_abs_no_gaps)
-
-        return y_alt  # y_pred
+        return y_return
 
     def _predict_out_of_sample_v1(self, X_pool, fh):
         """Recursive reducer: predict out of sample (ahead of cutoff).
